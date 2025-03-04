@@ -43,7 +43,9 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "@react-native-community/cli": "latest"
+    "@react-native-community/cli": "latest",
+    "webpack": "^5.98.0",
+    "webpack-dev-server": "^5.2.0"
   },
   "private": true
 }

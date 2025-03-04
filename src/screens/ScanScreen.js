@@ -127,7 +127,7 @@ export default function ScanScreen() {
         return;
       }
 
-      const baseURL = Platform.OS === "web" ? "http://localhost:3000" : "http://192.168.10.4:3000";
+      const baseURL = Platform.OS === "web" ? "https://201.75.89.242:3000" :  "https://localhost:3000";
       console.log("Enviando requisição para registrar presença:", { cpf, periodo });
       const response = await axios.post(
         `${baseURL}/api/usuarios/register-attendance`,

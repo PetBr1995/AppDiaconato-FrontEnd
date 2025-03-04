@@ -1,83 +1,103 @@
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
-import axios from "axios";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from 'axios';
 
-export default function UserProfileScreen({ route }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const userId = route.params?.id; // Recupera o ID do usuário dos parâmetros da rota
-        if (!userId) {
-          console.error("ID do usuário não encontrado.");
-          return;
-        }
-
-        // Obtém o token JWT do AsyncStorage
-        const token = await AsyncStorage.getItem("userToken");
-        if (!token) {
-          console.error("Token não encontrado.");
-          return;
-        }
-
-        // Ajuste da URL do backend dependendo da plataforma
-        const baseURL = Platform.OS === "web" ? "http://localhost:3000" : "http://192.168.10.4:3000";
-        const response = await axios.get(
-          `${baseURL}/api/usuarios/users/${userId}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-
-        // Atualiza o estado com os dados do usuário
-        setUser(response.data);
-      } catch (error) {
-        console.error("Erro ao buscar perfil do usuário:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserData();
-  }, [route]);
-
-  if (loading) {
-    return <ActivityIndicator size="large" color="#f1901d" />;
-  }
-
-  if (!user) {
-    return <Text>Usuário não encontrado.</Text>;
-  }
-
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Perfil do Usuário</Text>
-      <Text>Nome: {user.nome}</Text>
-      <Text>CPF: {user.cpf}</Text>
-      <Text>Email: {user.email}</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
-  },
+const api = axios.create({
+  baseURL: 'https://201.75.89.242:3000/api', // Substitua pelo IP do seu backend
 });
+
+// Cadastro de usuário
+export const registerUser = async (userData) => {
+  try {
+    const response = await api.post('/usuarios/register', userData);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || 'Erro ao cadastrar usuário';
+  }
+};
+
+// Login de usuário
+export const loginUser = async (cpf) => {
+  try {
+    const response = await api.post('/usuarios/login', { cpf });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || 'Erro ao realizar login';
+  }
+};
+
+// Geração de QR Code
+export const generateQRCode = async (cpf) => {
+  try {
+    const response = await api.post('/usuarios/generateQRCode', { cpf });
+    return response.data.qrCodeURL;
+  } catch (error) {
+    throw error.response?.data || 'Erro ao gerar QR Code';
+  }
+};
+
+// Registro de presença
+export const registerAttendance = async (cpf, token) => {
+  try {
+    const response = await api.post(
+      '/usuarios/registerAttendance',
+      { cpf },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || 'Erro ao registrar presença';
+  }
+};
+
+// Listar todos os usuários
+export const getAllUsers = async (token) => {
+  try {
+    const response = await api.get('/usuarios', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || 'Erro ao buscar usuários';
+  }
+};
+
+// Atualizar usuário
+export const updateUser = async (id, userData, token) => {
+  try {
+    const response = await api.put(`/usuarios/${id}`, userData, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || 'Erro ao atualizar usuário';
+  }
+};
+
+// Deletar usuário
+export const deleteUser = async (id, token) => {
+  try {
+    const response = await api.delete(`/usuarios/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || 'Erro ao deletar usuário';
+  }
+};
+
+// Promover usuário para administrador
+export const promoteToAdmin = async (cpf, token) => {
+  try {
+    const response = await api.post(
+      '/usuarios/promoteToAdmin',
+      { cpf },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || 'Erro ao promover usuário';
+  }
+};

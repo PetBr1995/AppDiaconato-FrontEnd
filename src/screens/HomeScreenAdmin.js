@@ -41,7 +41,7 @@ export default function HomeScreenAdmin() {
       }
 
       const response = await axios.put(
-        "http://192.168.10.4:3000/api/usuarios/users/promote",
+        "https://201.75.89.242:3000/api/usuarios/users/promote",
         { cpf },
         {
           headers: { Authorization: `Bearer ${token}` },

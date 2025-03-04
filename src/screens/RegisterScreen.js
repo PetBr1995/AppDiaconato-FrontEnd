@@ -21,6 +21,7 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     try {
+      // Validação dos campos
       if (!nome || !cpf || !area || !congregacao || !email) {
         Alert.alert("Erro", "Preencha todos os campos");
         return;
@@ -41,6 +42,7 @@ export default function RegisterScreen() {
         return;
       }
 
+      // Montar os dados do usuário
       const userData = {
         nome,
         cpf,
@@ -53,13 +55,23 @@ export default function RegisterScreen() {
       console.log("Dados enviados para o backend:", userData); // Log dos dados enviados
 
       // Ajuste da URL do backend dependendo da plataforma
-      const baseURL = Platform.OS === "web" ? "http://localhost:3000" : "http://192.168.10.4:3000";
-      await registerUser(userData, baseURL); // Chama o backend com baseURL ajustado
+      const baseURL = Platform.OS === "web" ? "https://201.75.89.242:3000" : "http://localhost:3000";
+
+      // Chamar o backend para registrar o usuário
+      await registerUser(userData, baseURL);
+
+      // Exibir mensagem de sucesso e navegar para a tela de login
       Alert.alert("Sucesso", "Usuário cadastrado com sucesso!");
       navigation.navigate("Login");
     } catch (error) {
       console.error("Erro ao registrar usuário:", error); // Log do erro
-      Alert.alert("Erro", error.message || "Ocorreu um erro ao registrar");
+
+      // Exibir mensagem de erro para o usuário
+      let errorMessage = "Ocorreu um erro ao registrar o usuário.";
+      if (error.response && error.response.data && error.response.data.message) {
+        errorMessage = error.response.data.message; // Usar mensagem específica do backend, se disponível
+      }
+      Alert.alert("Erro", errorMessage);
     }
   };
 

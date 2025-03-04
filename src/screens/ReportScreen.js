@@ -41,7 +41,7 @@ export default function ReportScreen() {
         return;
       }
 
-      const baseURL = Platform.OS === "web" ? "http://localhost:3000" : "http://192.168.10.4:3000";
+      const baseURL = Platform.OS === "web" ? "https://201.75.89.242:3000" :  "https://localhost:3000";
       console.log("URL da requisição:", baseURL);
 
       const response = await axios.get(`${baseURL}/api/usuarios/relatorio?t=${Date.now()}`, {
@@ -77,7 +77,7 @@ export default function ReportScreen() {
         return;
       }
 
-      const baseURL = Platform.OS === "web" ? "http://localhost:3000" : "http://192.168.10.4:3000";
+      const baseURL = Platform.OS === "web" ? "https://201.75.89.242:3000" :  "https://localhost:3000";
       const url = `${baseURL}/api/usuarios/export/${type}`;
 
       if (Platform.OS !== "web") {
