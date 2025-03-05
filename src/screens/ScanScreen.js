@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  TextInput,
   Platform,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -16,7 +15,6 @@ export default function ScanScreen() {
   const [scanned, setScanned] = useState(false);
   const [scannedData, setScannedData] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [manualCpf, setManualCpf] = useState("");
   const [statusMessage, setStatusMessage] = useState(""); // Para mensagens de status
   const canvasRef = useRef(null);
   const streamRef = useRef(null); // Para armazenar o MediaStream
@@ -143,12 +141,7 @@ export default function ScanScreen() {
         error.response?.data?.message || "Erro ao conectar com o servidor."
       );
     } finally {
-      // Reinicia o escaneamento após 2 segundos, independentemente de sucesso ou falha
-      setTimeout(() => {
-        setScanned(false);
-        setScannedData(null);
-        setStatusMessage("Escaneie o próximo QR Code...");
-      }, 2000);
+      setScanned(true); // Marca como escaneado para exibir o botão
     }
   };
 
@@ -173,7 +166,7 @@ export default function ScanScreen() {
         return;
       }
 
-      // Sempre atualiza o canvas com o stream da câmera, mesmo após leitura
+      // Sempre atualiza o canvas com o stream da câmera
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -184,7 +177,6 @@ export default function ScanScreen() {
         const code = jsQR(imageData.data, imageData.width, imageData.height);
 
         if (code) {
-          setScanned(true);
           setScannedData(code.data);
           console.log("QR Code escaneado:", code.data);
 
@@ -197,7 +189,7 @@ export default function ScanScreen() {
           } catch (error) {
             console.error("Erro ao processar QR Code:", error);
             setStatusMessage("Erro: QR Code inválido.");
-            setScanned(false); // Reinicia imediatamente em caso de erro
+            setScanned(true); // Mostra o botão mesmo em caso de erro
           }
         }
       }
@@ -209,14 +201,10 @@ export default function ScanScreen() {
     animationFrameId.current = requestAnimationFrame(tick);
   };
 
-  const handleManualSubmit = () => {
-    if (!manualCpf || manualCpf.length !== 11 || isNaN(manualCpf)) {
-      setStatusMessage("Erro: Por favor, insira um CPF válido com 11 dígitos.");
-      return;
-    }
-    setScanned(true);
-    setScannedData(manualCpf);
-    registerAttendance(manualCpf);
+  const handleScanAgain = () => {
+    setScanned(false);
+    setScannedData(null);
+    setStatusMessage("Escaneie o próximo QR Code...");
   };
 
   if (hasPermission === null) {
@@ -247,7 +235,19 @@ export default function ScanScreen() {
                 <View style={styles.bottomOverlay} />
               </View>
               {statusMessage ? (
-                <Text style={styles.statusMessage}>{statusMessage}</Text>
+                <View style={styles.statusContainer}>
+                  <Text style={styles.statusMessage}>{statusMessage}</Text>
+                  {scanned && (
+                    <TouchableOpacity
+                      style={styles.buttonScanAgain}
+                      onPress={handleScanAgain}
+                    >
+                      <Text style={styles.buttonScanAgainText}>
+                        Deseja escanear novamente?
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               ) : null}
             </>
           ) : (
@@ -265,19 +265,6 @@ export default function ScanScreen() {
           </Text>
         </View>
       )}
-
-      <Text style={styles.manualLabel}>Insira o CPF manualmente:</Text>
-      <TextInput
-        style={styles.input}
-        value={manualCpf}
-        onChangeText={setManualCpf}
-        placeholder="Digite o CPF (11 dígitos)"
-        keyboardType="numeric"
-        maxLength={11}
-      />
-      <TouchableOpacity style={styles.buttonScanear} onPress={handleManualSubmit}>
-        <Text style={styles.buttonScanearText}>Registrar Presença</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -339,17 +326,28 @@ const styles = StyleSheet.create({
     color: "#fff",
     textAlign: "center",
   },
-  buttonScanear: {
-    backgroundColor: "#f1901d",
-    padding: 12,
-    borderRadius: 5,
-    marginTop: 10,
-    marginBottom: 10,
-    width: "90%",
+  statusContainer: {
+    position: "absolute",
+    bottom: 20,
+    alignItems: "center",
   },
-  buttonScanearText: {
+  statusMessage: {
     color: "#fff",
     fontSize: 16,
+    textAlign: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 10,
+  },
+  buttonScanAgain: {
+    backgroundColor: "#f1901d",
+    padding: 10,
+    borderRadius: 5,
+  },
+  buttonScanAgainText: {
+    color: "#fff",
+    fontSize: 14,
     fontWeight: "bold",
     textAlign: "center",
   },
@@ -363,29 +361,5 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     textAlign: "center",
-  },
-  manualLabel: {
-    color: "#fff",
-    fontSize: 16,
-    marginTop: 10,
-    marginBottom: 5,
-  },
-  input: {
-    backgroundColor: "#fff",
-    padding: 10,
-    borderRadius: 5,
-    width: "90%",
-    marginBottom: 10,
-    fontSize: 16,
-  },
-  statusMessage: {
-    color: "#fff",
-    fontSize: 16,
-    textAlign: "center",
-    position: "absolute",
-    bottom: 80,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    padding: 10,
-    borderRadius: 5,
   },
 });
