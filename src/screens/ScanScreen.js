@@ -206,7 +206,7 @@ export default function ScanScreen() {
   const handleScanAgain = () => {
     setScanned(false);
     setScannedData(null);
-    setStatus({ message: "", type: "" });
+    setStatus({ message: "Escaneie o próximo QR Code...", type: "" });
   };
 
   if (hasPermission === null) {
@@ -236,7 +236,7 @@ export default function ScanScreen() {
                 </View>
                 <View style={styles.bottomOverlay} />
               </View>
-              {status.message ? (
+              {status.message && (
                 <View style={styles.statusContainer}>
                   <Text
                     style={[
@@ -259,7 +259,7 @@ export default function ScanScreen() {
                     </TouchableOpacity>
                   )}
                 </View>
-              ) : null}
+              )}
             </>
           ) : (
             <View style={styles.errorContainer}>
