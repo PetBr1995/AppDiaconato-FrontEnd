@@ -1,98 +1,20 @@
-import React, { useEffect, useState, useRef } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Alert,
-  StyleSheet,
-  TextInput,
-  Platform,
-} from "react-native";
+import { Camera, CameraType, CameraView } from "expo-camera";
+import { View, Text, TouchableOpacity, Alert, StyleSheet } from "react-native";
+import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
-import jsQR from "jsqr";
+import axios from "axios"; // Adicionei axios para a requisição
 
 export default function ScanScreen() {
   const [hasPermission, setHasPermission] = useState(null);
   const [scanned, setScanned] = useState(false);
   const [scannedData, setScannedData] = useState(null);
-  const [errorMessage, setErrorMessage] = useState(null);
-  const [manualCpf, setManualCpf] = useState("");
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
 
   useEffect(() => {
-    const requestCameraPermission = async () => {
-      console.log("Iniciando solicitação de permissão da câmera...");
-      console.log("Plataforma:", Platform.OS);
-      console.log("navigator.mediaDevices:", !!navigator.mediaDevices);
-      console.log("navigator.mediaDevices.getUserMedia:", !!navigator.mediaDevices?.getUserMedia);
-
-      if (Platform.OS === "web" && (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)) {
-        console.log("API de mídia não suportada pelo navegador.");
-        setHasPermission(false);
-        setErrorMessage("API de mídia não suportada pelo navegador.");
-        return;
-      }
-
-      console.log("Solicitando acesso à câmera...");
-      try {
-        // Ajuste condicional para mobile (não aplicável aqui) e web
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
-        console.log("Stream obtido com sucesso:", stream);
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            console.log("Metadados do vídeo carregados. Iniciando reprodução...");
-            videoRef.current
-              .play()
-              .then(() => {
-                console.log("Vídeo iniciado com sucesso.");
-                setHasPermission(true);
-                setErrorMessage(null);
-                startScanning();
-              })
-              .catch(err => {
-                console.error("Erro ao iniciar o vídeo:", err);
-                setErrorMessage("Erro ao iniciar o vídeo da câmera: " + err.message);
-                setHasPermission(false);
-              });
-          };
-        } else {
-          console.error("Elemento <video> não encontrado.");
-          setErrorMessage("Elemento de vídeo não encontrado.");
-          setHasPermission(false);
-        }
-      } catch (error) {
-        console.error("Erro ao solicitar permissão da câmera:", error);
-        setHasPermission(false);
-        setErrorMessage(
-          error.name === "NotAllowedError"
-            ? "Permissão da câmera negada pelo usuário."
-            : "Erro ao acessar a câmera: " + error.message
-        );
-      }
-    };
-
-    if (Platform.OS === "web") {
-      requestCameraPermission();
-    } else {
-      // Mobile: não usa câmera nativa neste código, assume entrada manual
-      setHasPermission(false);
-      setErrorMessage("Câmera não disponível no mobile neste modo.");
-    }
-
-    return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        console.log("Limpando stream da câmera...");
-        const stream = videoRef.current.srcObject;
-        const tracks = stream.getTracks();
-        tracks.forEach(track => track.stop());
-      }
-    };
+    (async () => {
+      const { status } = await Camera.requestCameraPermissionsAsync();
+      console.log("Status da permissão:", status);
+      setHasPermission(status === "granted");
+    })();
   }, []);
 
   const registerAttendance = async (cpf) => {
@@ -108,6 +30,7 @@ export default function ScanScreen() {
       const currentMinutes = currentDateTime.getMinutes();
       console.log("Horário atual (local):", `${currentHour}:${currentMinutes}`);
 
+      // Determinar o período com base no horário atual
       let periodo;
       if (currentHour >= 8 && currentHour < 12) {
         periodo = "manha";
@@ -127,10 +50,9 @@ export default function ScanScreen() {
         return;
       }
 
-      const baseURL = Platform.OS === "web" ? "https://appdiaconato.ddns.net:3000" :  "https://localhost:3000";
-      console.log("Enviando requisição para registrar presença:", { cpf, periodo });
+      // Fazer a requisição para o backend
       const response = await axios.post(
-        `${baseURL}/api/usuarios/register-attendance`,
+        "http://192.168.10.4:3000/api/usuarios/register-attendance",
         {
           cpf: cpf,
           periodo: periodo,
@@ -165,128 +87,66 @@ export default function ScanScreen() {
     }
   };
 
-  const startScanning = () => {
-    console.log("Iniciando escaneamento...");
-    const tick = () => {
-      if (scanned || !videoRef.current || !canvasRef.current) {
-        console.log("Escaneamento interrompido:", {
-          scanned,
-          video: !!videoRef.current,
-          canvas: !!canvasRef.current,
-        });
-        return;
-      }
+  const handleBarCodeScanned = ({ type, data }) => {
+    if (!scanned) {
+      setScanned(true);
+      setScannedData(data);
+      console.log("QR Code escaneado:", { type, data });
 
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const ctx = canvas.getContext("2d");
-
-      if (video.videoWidth === 0 || video.videoHeight === 0) {
-        console.log("Vídeo ainda não tem dimensões válidas. Tentando novamente...");
-        requestAnimationFrame(tick);
-        return;
-      }
-
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-      const code = jsQR(imageData.data, imageData.width, imageData.height);
-      if (code) {
-        setScanned(true);
-        setScannedData(code.data);
-        console.log("QR Code escaneado:", { data: code.data });
-
-        try {
-          const cpf = code.data;
-          if (!cpf || typeof cpf !== "string" || cpf.length !== 11) {
-            throw new Error("CPF inválido.");
-          }
-          registerAttendance(cpf);
-        } catch (error) {
-          console.error("Erro ao processar QR Code:", error);
-          Alert.alert("Erro", "QR Code inválido.");
-          setScanned(false);
+      try {
+        // O QR Code contém apenas o CPF como string simples
+        const cpf = data; // Não precisa de JSON.parse, pois é só o CPF
+        if (!cpf || typeof cpf !== "string" || cpf.length !== 11) {
+          throw new Error("CPF inválido.");
         }
-      } else {
-        requestAnimationFrame(tick);
+        registerAttendance(cpf);
+      } catch (error) {
+        console.error("Erro ao processar QR Code:", error);
+        Alert.alert("Erro", "QR Code inválido.");
+        setScanned(false);
       }
-    };
-
-    requestAnimationFrame(tick);
-  };
-
-  const handleManualSubmit = () => {
-    if (!manualCpf || manualCpf.length !== 11 || isNaN(manualCpf)) {
-      Alert.alert("Erro", "Por favor, insira um CPF válido com 11 dígitos.");
-      return;
     }
-    setScanned(true);
-    setScannedData(manualCpf);
-    registerAttendance(manualCpf);
   };
 
   if (hasPermission === null) {
     return <Text>Solicitando permissão da câmera...</Text>;
   }
 
+  if (hasPermission === false) {
+    return <Text>Permissão não concedida. Acesso à câmera negado.</Text>;
+  }
+
   return (
     <View style={styles.container}>
-      {Platform.OS === "web" && hasPermission ? (
-        <>
-          <video
-            ref={videoRef}
-            style={styles.camera}
-            muted
-            autoPlay
-            playsInline
-          />
-          <canvas ref={canvasRef} style={{ display: "none" }} />
-          <View style={styles.overlayContainer}>
-            <View style={styles.topOverlay} />
-            <View style={styles.middleOverlay}>
-              <View style={styles.scanFrame}>
-                <Text style={styles.scanText}>
-                  {scanned ? "QR Code lido!" : "Escaneie o QR Code"}
-                </Text>
-              </View>
+      <CameraView
+        style={styles.camera}
+        facing="back"
+        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+      >
+        <View style={styles.overlayContainer}>
+          <View style={styles.topOverlay} />
+          <View style={styles.middleOverlay}>
+            <View style={styles.scanFrame}>
+              <Text style={styles.scanText}>
+                {scanned ? "QR Code lido!" : "Escaneie o QR Code"}
+              </Text>
             </View>
-            <View style={styles.bottomOverlay} />
           </View>
+          <View style={styles.bottomOverlay} />
+        </View>
+      </CameraView>
 
-          {scanned && (
-            <TouchableOpacity
-              style={styles.buttonScanear}
-              onPress={() => {
-                setScanned(false);
-                setScannedData(null);
-                startScanning();
-              }}
-            >
-              <Text style={styles.buttonScanearText}>Escanear Novamente</Text>
-            </TouchableOpacity>
-          )}
-        </>
-      ) : (
-        <Text style={styles.errorText}>
-          {errorMessage || "Câmera não disponível ou permissão negada."}
-        </Text>
+      {scanned && (
+        <TouchableOpacity
+          style={styles.buttonScanear}
+          onPress={() => {
+            setScanned(false);
+            setScannedData(null);
+          }}
+        >
+          <Text style={styles.buttonScanearText}>Escanear Novamente</Text>
+        </TouchableOpacity>
       )}
-
-      <Text style={styles.manualLabel}>Insira o CPF manualmente:</Text>
-      <TextInput
-        style={styles.input}
-        value={manualCpf}
-        onChangeText={setManualCpf}
-        placeholder="Digite o CPF (11 dígitos)"
-        keyboardType="numeric"
-        maxLength={11}
-      />
-      <TouchableOpacity style={styles.buttonScanear} onPress={handleManualSubmit}>
-        <Text style={styles.buttonScanearText}>Registrar Presença</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -295,21 +155,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#000",
-    position: "relative",
-    alignItems: "center",
   },
   camera: {
     flex: 1,
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
   },
   overlayContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
+    backgroundColor: "transparent",
     flexDirection: "column",
   },
   topOverlay: {
@@ -346,32 +198,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textAlign: "center",
     fontWeight: "bold",
-    width: "90%",
   },
   buttonScanearText: {
     color: "#fff",
     fontSize: 13,
     fontWeight: "bold",
     textAlign: "center",
-  },
-  errorText: {
-    color: "#fff",
-    fontSize: 16,
-    textAlign: "center",
-    margin: 20,
-  },
-  manualLabel: {
-    color: "#fff",
-    fontSize: 16,
-    marginTop: 10,
-    marginBottom: 5,
-  },
-  input: {
-    backgroundColor: "#fff",
-    padding: 10,
-    borderRadius: 5,
-    width: "90%",
-    marginBottom: 10,
-    fontSize: 16,
   },
 });
