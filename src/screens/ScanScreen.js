@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Alert,
   StyleSheet,
   TextInput,
   Platform,
@@ -18,6 +17,7 @@ export default function ScanScreen() {
   const [scannedData, setScannedData] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [manualCpf, setManualCpf] = useState("");
+  const [statusMessage, setStatusMessage] = useState(""); // Para exibir mensagens de sucesso/erro
   const canvasRef = useRef(null);
   const streamRef = useRef(null); // Para armazenar o MediaStream
   const animationFrameId = useRef(null); // Para controlar o requestAnimationFrame
@@ -80,7 +80,7 @@ export default function ScanScreen() {
         streamRef.current = null;
       }
       if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current); // Cancela o loop ao desmontar
+        cancelAnimationFrame(animationFrameId.current);
       }
     };
   }, []);
@@ -89,7 +89,7 @@ export default function ScanScreen() {
     try {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) {
-        Alert.alert("Erro", "Token não encontrado. Faça login novamente.");
+        setStatusMessage("Erro: Token não encontrado. Faça login novamente.");
         return;
       }
 
@@ -108,9 +108,8 @@ export default function ScanScreen() {
       }
 
       if (!periodo) {
-        Alert.alert(
-          "Erro",
-          "Nenhuma janela de leitura ativa no momento (8:00-12:00 ou 13:00-18:00)."
+        setStatusMessage(
+          "Erro: Nenhuma janela de leitura ativa no momento (8:00-12:00 ou 13:00-18:00)."
         );
         return;
       }
@@ -135,15 +134,21 @@ export default function ScanScreen() {
       if (response.status === 200) {
         const successMessage = result.complete
           ? "Presença registrada! Comparecimento completo hoje."
-          : result.message;
-        Alert.alert("Sucesso", successMessage);
+          : result.message || "Presença registrada com sucesso!";
+        setStatusMessage(successMessage);
       }
     } catch (error) {
       console.error("Erro ao registrar presença:", error);
-      Alert.alert(
-        "Erro",
+      setStatusMessage(
         error.response?.data?.message || "Erro ao conectar com o servidor."
       );
+    } finally {
+      // Após o registro (sucesso ou falha), reinicia o escaneamento após 2 segundos
+      setTimeout(() => {
+        setScanned(false);
+        setScannedData(null);
+        setStatusMessage("Escaneie o próximo QR Code...");
+      }, 2000);
     }
   };
 
@@ -154,9 +159,9 @@ export default function ScanScreen() {
     video.play();
 
     const tick = () => {
-      if (scanned || !canvasRef.current || !streamRef.current) {
-        console.log("Escaneamento interrompido:", { scanned });
-        return; // Para o loop explicitamente quando scanned é true
+      if (!canvasRef.current || !streamRef.current) {
+        console.log("Escaneamento interrompido: canvas ou stream ausente.");
+        return;
       }
 
       const canvas = canvasRef.current;
@@ -175,7 +180,7 @@ export default function ScanScreen() {
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const code = jsQR(imageData.data, imageData.width, imageData.height);
 
-      if (code) {
+      if (code && !scanned) { // Só processa se não estiver em estado "scanned"
         setScanned(true);
         setScannedData(code.data);
         console.log("QR Code escaneado:", code.data);
@@ -188,9 +193,8 @@ export default function ScanScreen() {
           registerAttendance(cpf);
         } catch (error) {
           console.error("Erro ao processar QR Code:", error);
-          Alert.alert("Erro", "QR Code inválido.");
-          setScanned(false);
-          animationFrameId.current = requestAnimationFrame(tick); // Reinicia o loop se falhar
+          setStatusMessage("Erro: QR Code inválido.");
+          setScanned(false); // Reinicia imediatamente em caso de erro
         }
       } else {
         animationFrameId.current = requestAnimationFrame(tick);
@@ -202,7 +206,7 @@ export default function ScanScreen() {
 
   const handleManualSubmit = () => {
     if (!manualCpf || manualCpf.length !== 11 || isNaN(manualCpf)) {
-      Alert.alert("Erro", "Por favor, insira um CPF válido com 11 dígitos.");
+      setStatusMessage("Erro: Por favor, insira um CPF válido com 11 dígitos.");
       return;
     }
     setScanned(true);
@@ -225,38 +229,28 @@ export default function ScanScreen() {
         <>
           <canvas ref={canvasRef} style={styles.camera} />
           {hasPermission ? (
-            <View style={styles.overlayContainer}>
-              <View style={styles.topOverlay} />
-              <View style={styles.middleOverlay}>
-                <View style={styles.scanFrame}>
-                  <Text style={styles.scanText}>
-                    {scanned ? "QR Code lido!" : "Escaneie o QR Code"}
-                  </Text>
+            <>
+              <View style={styles.overlayContainer}>
+                <View style={styles.topOverlay} />
+                <View style={styles.middleOverlay}>
+                  <View style={styles.scanFrame}>
+                    <Text style={styles.scanText}>
+                      {scanned ? "QR Code lido!" : "Escaneie o QR Code"}
+                    </Text>
+                  </View>
                 </View>
+                <View style={styles.bottomOverlay} />
               </View>
-              <View style={styles.bottomOverlay} />
-            </View>
+              {statusMessage ? (
+                <Text style={styles.statusMessage}>{statusMessage}</Text>
+              ) : null}
+            </>
           ) : (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>
                 {errorMessage || "Câmera não disponível ou permissão negada."}
               </Text>
             </View>
-          )}
-          {scanned && hasPermission && (
-            <TouchableOpacity
-              style={styles.buttonScanear}
-              onPress={() => {
-                setScanned(false);
-                setScannedData(null);
-                if (animationFrameId.current) {
-                  cancelAnimationFrame(animationFrameId.current); // Cancela o loop anterior
-                }
-                startScanning(); // Reinicia o escaneamento
-              }}
-            >
-              <Text style={styles.buttonScanearText}>Escanear Novamente</Text>
-            </TouchableOpacity>
           )}
         </>
       ) : (
@@ -378,5 +372,15 @@ const styles = StyleSheet.create({
     width: "90%",
     marginBottom: 10,
     fontSize: 16,
+  },
+  statusMessage: {
+    color: "#fff",
+    fontSize: 16,
+    textAlign: "center",
+    position: "absolute",
+    bottom: 80, // Posiciona acima dos botões
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    padding: 10,
+    borderRadius: 5,
   },
 });
