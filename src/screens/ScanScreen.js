@@ -24,7 +24,7 @@ export default function ScanScreen() {
   useEffect(() => {
     const requestCameraPermission = async () => {
       console.log("Iniciando solicitação de permissão da câmera...");
-      console.log("Plataforma:", Platform, paradox.OS);
+      console.log("Plataforma:", Platform.OS); // Corrigido o erro de digitação
 
       if (Platform.OS === "web") {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
