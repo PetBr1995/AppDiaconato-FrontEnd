@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://201.75.89.242:3000/api', // Substitua pelo IP do seu backend
+  baseURL: 'https://appdiaconato.ddns.net:3000/api', // Substitua pelo IP do seu backend
 });
 
 // Função de retry
