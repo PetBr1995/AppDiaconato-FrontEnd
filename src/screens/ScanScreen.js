@@ -15,7 +15,7 @@ export default function ScanScreen() {
   const [scanned, setScanned] = useState(false);
   const [scannedData, setScannedData] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [statusMessage, setStatusMessage] = useState(""); // Para mensagens de status
+  const [status, setStatus] = useState({ message: "", type: "" }); // { message, type: "success" | "error" | "warning" }
   const canvasRef = useRef(null);
   const streamRef = useRef(null); // Para armazenar o MediaStream
   const animationFrameId = useRef(null); // Para controlar o requestAnimationFrame
@@ -87,7 +87,7 @@ export default function ScanScreen() {
     try {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) {
-        setStatusMessage("Erro: Token não encontrado. Faça login novamente.");
+        setStatus({ message: "Erro: Token não encontrado. Faça login novamente.", type: "error" });
         return;
       }
 
@@ -106,9 +106,10 @@ export default function ScanScreen() {
       }
 
       if (!periodo) {
-        setStatusMessage(
-          "Erro: Nenhuma janela de leitura ativa no momento (8:00-12:00 ou 13:00-18:00)."
-        );
+        setStatus({
+          message: "Aviso: Nenhuma janela de leitura ativa no momento (8:00-12:00 ou 13:00-18:00).",
+          type: "warning",
+        });
         return;
       }
 
@@ -133,13 +134,14 @@ export default function ScanScreen() {
         const successMessage = result.complete
           ? "Presença registrada! Comparecimento completo hoje."
           : result.message || "Presença registrada com sucesso!";
-        setStatusMessage(successMessage);
+        setStatus({ message: successMessage, type: "success" });
       }
     } catch (error) {
       console.error("Erro ao registrar presença:", error);
-      setStatusMessage(
-        error.response?.data?.message || "Erro ao conectar com o servidor."
-      );
+      setStatus({
+        message: error.response?.data?.message || "Erro ao conectar com o servidor.",
+        type: "error",
+      });
     } finally {
       setScanned(true); // Marca como escaneado para exibir o botão
     }
@@ -188,7 +190,7 @@ export default function ScanScreen() {
             registerAttendance(cpf);
           } catch (error) {
             console.error("Erro ao processar QR Code:", error);
-            setStatusMessage("Erro: QR Code inválido.");
+            setStatus({ message: "Erro: QR Code inválido.", type: "error" });
             setScanned(true); // Mostra o botão mesmo em caso de erro
           }
         }
@@ -204,7 +206,7 @@ export default function ScanScreen() {
   const handleScanAgain = () => {
     setScanned(false);
     setScannedData(null);
-    setStatusMessage("Escaneie o próximo QR Code...");
+    setStatus({ message: "Escaneie o próximo QR Code...", type: "" });
   };
 
   if (hasPermission === null) {
@@ -234,9 +236,18 @@ export default function ScanScreen() {
                 </View>
                 <View style={styles.bottomOverlay} />
               </View>
-              {statusMessage ? (
+              {status.message ? (
                 <View style={styles.statusContainer}>
-                  <Text style={styles.statusMessage}>{statusMessage}</Text>
+                  <Text
+                    style={[
+                      styles.statusMessage,
+                      status.type === "success" && styles.successMessage,
+                      status.type === "error" && styles.errorMessage,
+                      status.type === "warning" && styles.warningMessage,
+                    ]}
+                  >
+                    {status.message}
+                  </Text>
                   {scanned && (
                     <TouchableOpacity
                       style={styles.buttonScanAgain}
@@ -328,26 +339,39 @@ const styles = StyleSheet.create({
   },
   statusContainer: {
     position: "absolute",
-    bottom: 20,
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: "-50%" }, { translateY: "-50%" }],
     alignItems: "center",
+    zIndex: 10,
   },
   statusMessage: {
-    color: "#fff",
-    fontSize: 16,
+    fontSize: 18,
     textAlign: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10,
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 15,
+    color: "#fff",
+    opacity: 0,
+    animation: "fadeIn 0.5s forwards",
+  },
+  successMessage: {
+    backgroundColor: "rgba(0, 128, 0, 0.9)", // Verde para sucesso
+  },
+  errorMessage: {
+    backgroundColor: "rgba(255, 0, 0, 0.9)", // Vermelho para erro
+  },
+  warningMessage: {
+    backgroundColor: "rgba(255, 165, 0, 0.9)", // Amarelo para aviso
   },
   buttonScanAgain: {
     backgroundColor: "#f1901d",
-    padding: 10,
+    padding: 12,
     borderRadius: 5,
   },
   buttonScanAgainText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "bold",
     textAlign: "center",
   },
@@ -363,3 +387,15 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
+
+// Adicionar animação CSS inline para React Native Web
+const keyframes = `
+  @keyframes fadeIn {
+    0% { opacity: 0; transform: scale(0.8); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+`;
+const styleSheet = document.createElement("style");
+styleSheet.type = "text/css";
+styleSheet.innerHTML = keyframes;
+document.head.appendChild(styleSheet);
