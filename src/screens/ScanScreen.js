@@ -206,7 +206,7 @@ export default function ScanScreen() {
   const handleScanAgain = () => {
     setScanned(false);
     setScannedData(null);
-    setStatus({ message: "Escaneie o próximo QR Code...", type: "" });
+    setStatus({ message: "", type: "" });
   };
 
   if (hasPermission === null) {
