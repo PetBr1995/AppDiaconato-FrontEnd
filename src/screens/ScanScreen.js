@@ -20,11 +20,12 @@ export default function ScanScreen() {
   const [manualCpf, setManualCpf] = useState("");
   const canvasRef = useRef(null);
   const streamRef = useRef(null); // Para armazenar o MediaStream
+  const animationFrameId = useRef(null); // Para controlar o requestAnimationFrame
 
   useEffect(() => {
     const requestCameraPermission = async () => {
       console.log("Iniciando solicitação de permissão da câmera...");
-      console.log("Plataforma:", Platform.OS); // Corrigido o erro de digitação
+      console.log("Plataforma:", Platform.OS);
 
       if (Platform.OS === "web") {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -48,7 +49,7 @@ export default function ScanScreen() {
           }
 
           console.log("Stream obtido com sucesso:", stream);
-          streamRef.current = stream; // Armazena o stream
+          streamRef.current = stream;
           setHasPermission(true);
           setErrorMessage(null);
           startScanning();
@@ -77,6 +78,9 @@ export default function ScanScreen() {
         const tracks = streamRef.current.getTracks();
         tracks.forEach(track => track.stop());
         streamRef.current = null;
+      }
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current); // Cancela o loop ao desmontar
       }
     };
   }, []);
@@ -145,14 +149,14 @@ export default function ScanScreen() {
 
   const startScanning = () => {
     console.log("Iniciando escaneamento...");
-    const video = document.createElement("video"); // Cria um elemento de vídeo temporário
+    const video = document.createElement("video");
     video.srcObject = streamRef.current;
     video.play();
 
     const tick = () => {
       if (scanned || !canvasRef.current || !streamRef.current) {
         console.log("Escaneamento interrompido:", { scanned });
-        return;
+        return; // Para o loop explicitamente quando scanned é true
       }
 
       const canvas = canvasRef.current;
@@ -160,7 +164,7 @@ export default function ScanScreen() {
 
       if (video.videoWidth === 0 || video.videoHeight === 0) {
         console.log("Vídeo ainda não tem dimensões válidas. Tentando novamente...");
-        requestAnimationFrame(tick);
+        animationFrameId.current = requestAnimationFrame(tick);
         return;
       }
 
@@ -168,7 +172,6 @@ export default function ScanScreen() {
       canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Renderiza o vídeo no canvas
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const code = jsQR(imageData.data, imageData.width, imageData.height);
 
@@ -187,13 +190,14 @@ export default function ScanScreen() {
           console.error("Erro ao processar QR Code:", error);
           Alert.alert("Erro", "QR Code inválido.");
           setScanned(false);
+          animationFrameId.current = requestAnimationFrame(tick); // Reinicia o loop se falhar
         }
       } else {
-        requestAnimationFrame(tick);
+        animationFrameId.current = requestAnimationFrame(tick);
       }
     };
 
-    requestAnimationFrame(tick);
+    animationFrameId.current = requestAnimationFrame(tick);
   };
 
   const handleManualSubmit = () => {
@@ -245,7 +249,10 @@ export default function ScanScreen() {
               onPress={() => {
                 setScanned(false);
                 setScannedData(null);
-                startScanning();
+                if (animationFrameId.current) {
+                  cancelAnimationFrame(animationFrameId.current); // Cancela o loop anterior
+                }
+                startScanning(); // Reinicia o escaneamento
               }}
             >
               <Text style={styles.buttonScanearText}>Escanear Novamente</Text>
