@@ -21,65 +21,72 @@ export default function ScanScreen() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
-  useEffect(() => {
-    const requestCameraPermission = async () => {
-      console.log("Iniciando solicitação de permissão da câmera...");
-      console.log("Plataforma:", Platform.OS);
+  // Separar a lógica de inicialização da câmera em uma função assíncrona
+  const initializeCamera = async () => {
+    console.log("Iniciando solicitação de permissão da câmera...");
+    console.log("Plataforma:", Platform.OS);
 
-      if (Platform.OS === "web") {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          console.log("API de mídia não suportada pelo navegador.");
-          setHasPermission(false);
-          setErrorMessage("API de mídia não suportada pelo navegador.");
-          return;
-        }
+    if (Platform.OS !== "web") {
+      setHasPermission(false);
+      setErrorMessage("Câmera não disponível no mobile neste modo.");
+      return;
+    }
 
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "environment" }, // Usa a câmera traseira por padrão
-          });
-          console.log("Stream obtido com sucesso:", stream);
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.log("API de mídia não suportada pelo navegador.");
+      setHasPermission(false);
+      setErrorMessage("API de mídia não suportada pelo navegador.");
+      return;
+    }
 
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            videoRef.current.onloadedmetadata = () => {
-              console.log("Metadados do vídeo carregados. Iniciando reprodução...");
-              videoRef.current
-                .play()
-                .then(() => {
-                  console.log("Vídeo iniciado com sucesso.");
-                  setHasPermission(true);
-                  setErrorMessage(null);
-                  startScanning();
-                })
-                .catch(err => {
-                  console.error("Erro ao iniciar o vídeo:", err);
-                  setErrorMessage("Erro ao iniciar o vídeo: " + err.message);
-                  setHasPermission(false);
-                });
-            };
-          } else {
-            console.error("Elemento <video> não encontrado.");
-            setErrorMessage("Elemento de vídeo não encontrado.");
-            setHasPermission(false);
-          }
-        } catch (error) {
-          console.error("Erro ao solicitar permissão da câmera:", error);
-          setHasPermission(false);
-          setErrorMessage(
-            error.name === "NotAllowedError"
-              ? "Permissão da câmera negada pelo usuário."
-              : "Erro ao acessar a câmera: " + error.message
-          );
-        }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      console.log("Stream obtido com sucesso:", stream);
+
+      if (videoRef.current) {
+        console.log("Atribuindo stream ao elemento <video>");
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => {
+          console.log("Metadados carregados. Iniciando vídeo...");
+          videoRef.current
+            .play()
+            .then(() => {
+              console.log("Vídeo iniciado com sucesso.");
+              setHasPermission(true);
+              setErrorMessage(null);
+              startScanning();
+            })
+            .catch(err => {
+              console.error("Erro ao iniciar o vídeo:", err);
+              setErrorMessage("Erro ao iniciar o vídeo: " + err.message);
+              setHasPermission(false);
+            });
+        };
       } else {
-        // Mobile: assume entrada manual
+        console.error("Elemento <video> não encontrado no momento da atribuição.");
+        setErrorMessage("Elemento de vídeo não encontrado.");
         setHasPermission(false);
-        setErrorMessage("Câmera não disponível no mobile neste modo.");
       }
-    };
+    } catch (error) {
+      console.error("Erro ao solicitar permissão da câmera:", error);
+      setHasPermission(false);
+      setErrorMessage(
+        error.name === "NotAllowedError"
+          ? "Permissão da câmera negada pelo usuário."
+          : "Erro ao acessar a câmera: " + error.message
+      );
+    }
+  };
 
-    requestCameraPermission();
+  useEffect(() => {
+    // Garantir que o elemento <video> esteja disponível antes de iniciar
+    if (Platform.OS === "web" && videoRef.current) {
+      initializeCamera();
+    } else {
+      console.log("Aguardando renderização do elemento <video> ou plataforma não é web.");
+    }
 
     return () => {
       if (videoRef.current && videoRef.current.srcObject) {
@@ -218,7 +225,7 @@ export default function ScanScreen() {
 
   return (
     <View style={styles.container}>
-      {Platform.OS === "web" && hasPermission ? (
+      {Platform.OS === "web" ? (
         <>
           <video
             ref={videoRef}
@@ -227,35 +234,43 @@ export default function ScanScreen() {
             autoPlay
             playsInline
           />
-          <canvas ref={canvasRef} style={{ display: "none" }} />
-          <View style={styles.overlayContainer}>
-            <View style={styles.topOverlay} />
-            <View style={styles.middleOverlay}>
-              <View style={styles.scanFrame}>
-                <Text style={styles.scanText}>
-                  {scanned ? "QR Code lido!" : "Escaneie o QR Code"}
-                </Text>
+          {hasPermission ? (
+            <>
+              <canvas ref={canvasRef} style={{ display: "none" }} />
+              <View style={styles.overlayContainer}>
+                <View style={styles.topOverlay} />
+                <View style={styles.middleOverlay}>
+                  <View style={styles.scanFrame}>
+                    <Text style={styles.scanText}>
+                      {scanned ? "QR Code lido!" : "Escaneie o QR Code"}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.bottomOverlay} />
               </View>
-            </View>
-            <View style={styles.bottomOverlay} />
-          </View>
 
-          {scanned && (
-            <TouchableOpacity
-              style={styles.buttonScanear}
-              onPress={() => {
-                setScanned(false);
-                setScannedData(null);
-                startScanning();
-              }}
-            >
-              <Text style={styles.buttonScanearText}>Escanear Novamente</Text>
-            </TouchableOpacity>
+              {scanned && (
+                <TouchableOpacity
+                  style={styles.buttonScanear}
+                  onPress={() => {
+                    setScanned(false);
+                    setScannedData(null);
+                    startScanning();
+                  }}
+                >
+                  <Text style={styles.buttonScanearText}>Escanear Novamente</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          ) : (
+            <Text style={styles.errorText}>
+              {errorMessage || "Aguardando permissão da câmera..."}
+            </Text>
           )}
         </>
       ) : (
         <Text style={styles.errorText}>
-          {errorMessage || "Câmera não disponível ou permissão negada."}
+          {errorMessage || "Câmera não disponível no mobile neste modo."}
         </Text>
       )}
 
@@ -281,11 +296,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
     alignItems: "center",
     justifyContent: "center",
-    height: "100vh", // Garante que o contêiner ocupe toda a altura da tela
+    height: "100vh",
   },
   camera: {
     width: "100%",
-    height: "70%", // Define uma altura fixa para o vídeo
+    height: "70%",
     objectFit: "cover",
   },
   overlayContainer: {
