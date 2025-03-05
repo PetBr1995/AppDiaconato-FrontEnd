@@ -16,37 +16,61 @@ export default function ScanScreen() {
   const [hasPermission, setHasPermission] = useState(null);
   const [scanned, setScanned] = useState(false);
   const [scannedData, setScannedData] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null); // Para exibir erros
   const videoRef = useRef(null); // Para a versão web
   const canvasRef = useRef(null); // Para escanear QR codes na web
 
   // Solicitação de permissão e inicialização
   useEffect(() => {
     const requestPermission = async () => {
+      console.log("Iniciando solicitação de permissão...");
+      console.log("Plataforma:", Platform.OS);
+
       if (Platform.OS === "web") {
         // Web: Usar navigator.mediaDevices
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          console.log("API de mídia não suportada pelo navegador.");
           setHasPermission(false);
+          setErrorMessage("API de mídia não suportada pelo navegador.");
           return;
         }
         try {
           const stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: "environment" }, // Câmera traseira
           });
+          console.log("Stream obtido com sucesso na web.");
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
-            videoRef.current.play();
-            setHasPermission(true);
-            startScanning(); // Inicia o escaneamento na web
+            videoRef.current.onloadedmetadata = () => {
+              videoRef.current.play();
+              setHasPermission(true);
+              setErrorMessage(null);
+              startScanning(); // Inicia o escaneamento na web
+            };
+          } else {
+            console.error("Elemento <video> não encontrado.");
+            setHasPermission(false);
+            setErrorMessage("Elemento de vídeo não encontrado.");
           }
         } catch (error) {
           console.error("Erro ao acessar câmera na web:", error);
           setHasPermission(false);
+          setErrorMessage("Erro ao acessar a câmera na web: " + error.message);
         }
       } else {
         // Mobile: Usar expo-camera
-        const { status } = await Camera.requestCameraPermissionsAsync();
-        console.log("Status da permissão (mobile):", status);
-        setHasPermission(status === "granted");
+        try {
+          const { status } = await Camera.requestCameraPermissionsAsync();
+          console.log("Status da permissão (mobile):", status);
+          setHasPermission(status === "granted");
+          if (status !== "granted") {
+            setErrorMessage("Permissão da câmera negada no mobile.");
+          }
+        } catch (error) {
+          console.error("Erro ao solicitar permissão no mobile:", error);
+          setHasPermission(false);
+          setErrorMessage("Erro ao solicitar permissão no mobile: " + error.message);
+        }
       }
     };
 
@@ -54,6 +78,7 @@ export default function ScanScreen() {
 
     return () => {
       if (Platform.OS === "web" && videoRef.current && videoRef.current.srcObject) {
+        console.log("Limpando stream da câmera na web...");
         const stream = videoRef.current.srcObject;
         const tracks = stream.getTracks();
         tracks.forEach(track => track.stop());
@@ -125,6 +150,7 @@ export default function ScanScreen() {
 
   // Função para escanear QR codes na web
   const startScanning = () => {
+    console.log("Iniciando escaneamento na web...");
     const tick = () => {
       if (scanned || !videoRef.current || !canvasRef.current) return;
 
@@ -181,11 +207,23 @@ export default function ScanScreen() {
   };
 
   if (hasPermission === null) {
-    return <Text>Solicitando permissão da câmera...</Text>;
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Solicitando permissão da câmera...</Text>
+        {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+      </View>
+    );
   }
 
   if (hasPermission === false) {
-    return <Text>Permissão não concedida. Acesso à câmera negado.</Text>;
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.errorText}>
+          Permissão não concedida. Acesso à câmera negado.
+        </Text>
+        {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+      </View>
+    );
   }
 
   return (
@@ -247,6 +285,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000",
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000",
+  },
   camera: {
     flex: 1,
     width: "100%",
@@ -298,5 +342,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     textAlign: "center",
+  },
+  loadingText: {
+    color: "#fff",
+    fontSize: 16,
+    textAlign: "center",
+  },
+  errorText: {
+    color: "#ff5555",
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: 10,
   },
 });
