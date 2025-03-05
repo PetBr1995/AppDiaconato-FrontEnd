@@ -55,7 +55,7 @@ export default function RegisterScreen() {
       console.log("Dados enviados para o backend:", userData); // Log dos dados enviados
 
       // Ajuste da URL do backend dependendo da plataforma
-      const baseURL = Platform.OS === "web" ? "https://201.75.89.242:3000" : "http://localhost:3000";
+      const baseURL = Platform.OS === "web" ? "https://appdiaconato.ddns.net:3000" : "http://localhost:3000";
 
       // Chamar o backend para registrar o usuário
       await registerUser(userData, baseURL);

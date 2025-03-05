@@ -41,7 +41,7 @@ export default function HomeScreenAdmin() {
       }
 
       const response = await axios.put(
-        "https://201.75.89.242:3000/api/usuarios/users/promote",
+        "https://appdiaconato.ddns.net:3000/api/usuarios/users/promote",
         { cpf },
         {
           headers: { Authorization: `Bearer ${token}` },

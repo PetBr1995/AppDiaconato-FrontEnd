@@ -25,7 +25,7 @@ export default function UserProfileScreen({ route }) {
 
         // Faz a chamada ao backend para buscar o usuário
         const response = await axios.get(
-          `https://201.75.89.242:3000/api/usuarios/users/${userId}`,
+          `https://appdiaconato.ddns.net:3000/api/usuarios/users/${userId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }

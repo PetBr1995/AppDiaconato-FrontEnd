@@ -49,7 +49,7 @@ export default function HomeScreen() {
         return;
       }
 
-      const baseURL = Platform.OS === "web" ? "https://201.75.89.242:3000" :  "https://localhost:3000";
+      const baseURL = Platform.OS === "web" ? "https://appdiaconato.ddns.net:3000" :  "https://localhost:3000";
       console.log("3. Base URL usada:", baseURL);
 
       console.log("4. Verificando presenças...");

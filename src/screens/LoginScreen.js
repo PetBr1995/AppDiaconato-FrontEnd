@@ -30,7 +30,7 @@ export default function LoginScreen() {
       }
 
       // Ajuste da URL do backend dependendo da plataforma
-      const baseURL = Platform.OS === "web" ?  "https://201.75.89.242:3000" :  "https://localhost:3000"  ;
+      const baseURL = Platform.OS === "web" ?  "https://appdiaconato.ddns.net:3000" :  "https://localhost:3000"  ;
       console.log("3. Base URL usada:", baseURL);
 
       // Requisição direta com axios (sem loginUser)

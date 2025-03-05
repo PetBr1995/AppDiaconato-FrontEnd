@@ -32,7 +32,7 @@ export default function ProfileScreen() {
           return;
         }
 
-        const baseURL = Platform.OS === "web" ? "https://201.75.89.242:3000" :  "https://localhost:3000";
+        const baseURL = Platform.OS === "web" ? "https://appdiaconato.ddns.net:3000" :  "https://localhost:3000";
         const response = await axios.get(`${baseURL}/api/usuarios/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -63,7 +63,7 @@ export default function ProfileScreen() {
         return;
       }
 
-      const baseURL = Platform.OS === "web" ? "https://201.75.89.242:3000" :  "https://localhost:3000";
+      const baseURL = Platform.OS === "web" ? "https://appdiaconato.ddns.net:3000" :  "https://localhost:3000";
       const response = await axios.post(
         `${baseURL}/api/usuarios/generate-qrcode`,
         { cpf: userData.cpf },
