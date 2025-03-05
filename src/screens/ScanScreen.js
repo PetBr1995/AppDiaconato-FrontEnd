@@ -144,6 +144,10 @@ export default function ScanScreen() {
       });
     } finally {
       setScanned(true); // Marca como escaneado para exibir o botão
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current); // Para o loop de escaneamento
+        console.log("Escaneamento pausado após leitura.");
+      }
     }
   };
 
@@ -188,15 +192,17 @@ export default function ScanScreen() {
               throw new Error("CPF inválido.");
             }
             registerAttendance(cpf);
+            return; // Para o loop imediatamente após a leitura
           } catch (error) {
             console.error("Erro ao processar QR Code:", error);
             setStatus({ message: "Erro: QR Code inválido.", type: "error" });
             setScanned(true); // Mostra o botão mesmo em caso de erro
+            return; // Para o loop imediatamente após erro
           }
         }
       }
 
-      // Continua o loop para manter o vídeo atualizado
+      // Continua o loop apenas se não estiver escaneado
       animationFrameId.current = requestAnimationFrame(tick);
     };
 
@@ -206,7 +212,8 @@ export default function ScanScreen() {
   const handleScanAgain = () => {
     setScanned(false);
     setScannedData(null);
-    setStatus({ message: "Escaneie o próximo QR Code...", type: "" });
+    setStatus({ message: "", type: "" });
+    startScanning(); // Reinicia o escaneamento
   };
 
   if (hasPermission === null) {
