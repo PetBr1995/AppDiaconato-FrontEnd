@@ -18,13 +18,13 @@ export default function ScanScreen() {
   const [scannedData, setScannedData] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [manualCpf, setManualCpf] = useState("");
-  const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const streamRef = useRef(null); // Para armazenar o MediaStream
 
   useEffect(() => {
     const requestCameraPermission = async () => {
       console.log("Iniciando solicitação de permissão da câmera...");
-      console.log("Plataforma:", Platform.OS);
+      console.log("Plataforma:", Platform, paradox.OS);
 
       if (Platform.OS === "web") {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -37,43 +37,21 @@ export default function ScanScreen() {
         try {
           let stream;
           try {
-            // Tenta usar a câmera traseira primeiro
             stream = await navigator.mediaDevices.getUserMedia({
               video: { facingMode: "environment" },
             });
           } catch (err) {
             console.log("Câmera traseira não disponível, tentando qualquer câmera:", err);
-            // Se falhar, tenta usar qualquer câmera disponível
             stream = await navigator.mediaDevices.getUserMedia({
               video: true,
             });
           }
 
           console.log("Stream obtido com sucesso:", stream);
-
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            videoRef.current.onloadedmetadata = () => {
-              console.log("Metadados do vídeo carregados. Iniciando reprodução...");
-              videoRef.current
-                .play()
-                .then(() => {
-                  console.log("Vídeo iniciado com sucesso.");
-                  setHasPermission(true);
-                  setErrorMessage(null);
-                  startScanning();
-                })
-                .catch(err => {
-                  console.error("Erro ao iniciar o vídeo:", err);
-                  setErrorMessage("Erro ao iniciar o vídeo: " + err.message);
-                  setHasPermission(false);
-                });
-            };
-          } else {
-            console.error("Elemento <video> não encontrado após obtenção do stream.");
-            setErrorMessage("Elemento de vídeo não encontrado.");
-            setHasPermission(false);
-          }
+          streamRef.current = stream; // Armazena o stream
+          setHasPermission(true);
+          setErrorMessage(null);
+          startScanning();
         } catch (error) {
           console.error("Erro ao solicitar permissão da câmera:", error);
           setHasPermission(false);
@@ -86,7 +64,6 @@ export default function ScanScreen() {
           );
         }
       } else {
-        // Mobile: assume entrada manual
         setHasPermission(false);
         setErrorMessage("Câmera não disponível no mobile neste modo.");
       }
@@ -95,12 +72,11 @@ export default function ScanScreen() {
     requestCameraPermission();
 
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
+      if (streamRef.current) {
         console.log("Limpando stream da câmera...");
-        const stream = videoRef.current.srcObject;
-        const tracks = stream.getTracks();
+        const tracks = streamRef.current.getTracks();
         tracks.forEach(track => track.stop());
-        videoRef.current.srcObject = null;
+        streamRef.current = null;
       }
     };
   }, []);
@@ -169,13 +145,16 @@ export default function ScanScreen() {
 
   const startScanning = () => {
     console.log("Iniciando escaneamento...");
+    const video = document.createElement("video"); // Cria um elemento de vídeo temporário
+    video.srcObject = streamRef.current;
+    video.play();
+
     const tick = () => {
-      if (scanned || !videoRef.current || !canvasRef.current) {
+      if (scanned || !canvasRef.current || !streamRef.current) {
         console.log("Escaneamento interrompido:", { scanned });
         return;
       }
 
-      const video = videoRef.current;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d");
 
@@ -188,9 +167,11 @@ export default function ScanScreen() {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
+      // Renderiza o vídeo no canvas
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const code = jsQR(imageData.data, imageData.width, imageData.height);
+
       if (code) {
         setScanned(true);
         setScannedData(code.data);
@@ -238,47 +219,37 @@ export default function ScanScreen() {
     <View style={styles.container}>
       {Platform.OS === "web" ? (
         <>
-          <video
-            ref={videoRef}
-            style={styles.camera}
-            muted
-            autoPlay
-            playsInline
-          />
+          <canvas ref={canvasRef} style={styles.camera} />
           {hasPermission ? (
-            <>
-              <canvas ref={canvasRef} style={{ display: "none" }} />
-              <View style={styles.overlayContainer}>
-                <View style={styles.topOverlay} />
-                <View style={styles.middleOverlay}>
-                  <View style={styles.scanFrame}>
-                    <Text style={styles.scanText}>
-                      {scanned ? "QR Code lido!" : "Escaneie o QR Code"}
-                    </Text>
-                  </View>
+            <View style={styles.overlayContainer}>
+              <View style={styles.topOverlay} />
+              <View style={styles.middleOverlay}>
+                <View style={styles.scanFrame}>
+                  <Text style={styles.scanText}>
+                    {scanned ? "QR Code lido!" : "Escaneie o QR Code"}
+                  </Text>
                 </View>
-                <View style={styles.bottomOverlay} />
               </View>
-
-              {scanned && (
-                <TouchableOpacity
-                  style={styles.buttonScanear}
-                  onPress={() => {
-                    setScanned(false);
-                    setScannedData(null);
-                    startScanning();
-                  }}
-                >
-                  <Text style={styles.buttonScanearText}>Escanear Novamente</Text>
-                </TouchableOpacity>
-              )}
-            </>
+              <View style={styles.bottomOverlay} />
+            </View>
           ) : (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>
                 {errorMessage || "Câmera não disponível ou permissão negada."}
               </Text>
             </View>
+          )}
+          {scanned && hasPermission && (
+            <TouchableOpacity
+              style={styles.buttonScanear}
+              onPress={() => {
+                setScanned(false);
+                setScannedData(null);
+                startScanning();
+              }}
+            >
+              <Text style={styles.buttonScanearText}>Escanear Novamente</Text>
+            </TouchableOpacity>
           )}
         </>
       ) : (
@@ -327,7 +298,6 @@ const styles = StyleSheet.create({
   camera: {
     width: "100%",
     height: "70%",
-    objectFit: "cover",
   },
   overlayContainer: {
     position: "absolute",
