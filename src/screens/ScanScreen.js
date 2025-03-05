@@ -17,7 +17,7 @@ export default function ScanScreen() {
   const [scannedData, setScannedData] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [manualCpf, setManualCpf] = useState("");
-  const [statusMessage, setStatusMessage] = useState(""); // Para exibir mensagens de sucesso/erro
+  const [statusMessage, setStatusMessage] = useState(""); // Para mensagens de status
   const canvasRef = useRef(null);
   const streamRef = useRef(null); // Para armazenar o MediaStream
   const animationFrameId = useRef(null); // Para controlar o requestAnimationFrame
@@ -143,7 +143,7 @@ export default function ScanScreen() {
         error.response?.data?.message || "Erro ao conectar com o servidor."
       );
     } finally {
-      // Após o registro (sucesso ou falha), reinicia o escaneamento após 2 segundos
+      // Reinicia o escaneamento após 2 segundos, independentemente de sucesso ou falha
       setTimeout(() => {
         setScanned(false);
         setScannedData(null);
@@ -173,32 +173,37 @@ export default function ScanScreen() {
         return;
       }
 
+      // Sempre atualiza o canvas com o stream da câmera, mesmo após leitura
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      // Processa o QR code apenas se não estiver em estado "scanned"
+      if (!scanned) {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
 
-      if (code && !scanned) { // Só processa se não estiver em estado "scanned"
-        setScanned(true);
-        setScannedData(code.data);
-        console.log("QR Code escaneado:", code.data);
+        if (code) {
+          setScanned(true);
+          setScannedData(code.data);
+          console.log("QR Code escaneado:", code.data);
 
-        try {
-          const cpf = code.data;
-          if (!cpf || typeof cpf !== "string" || cpf.length !== 11) {
-            throw new Error("CPF inválido.");
+          try {
+            const cpf = code.data;
+            if (!cpf || typeof cpf !== "string" || cpf.length !== 11) {
+              throw new Error("CPF inválido.");
+            }
+            registerAttendance(cpf);
+          } catch (error) {
+            console.error("Erro ao processar QR Code:", error);
+            setStatusMessage("Erro: QR Code inválido.");
+            setScanned(false); // Reinicia imediatamente em caso de erro
           }
-          registerAttendance(cpf);
-        } catch (error) {
-          console.error("Erro ao processar QR Code:", error);
-          setStatusMessage("Erro: QR Code inválido.");
-          setScanned(false); // Reinicia imediatamente em caso de erro
         }
-      } else {
-        animationFrameId.current = requestAnimationFrame(tick);
       }
+
+      // Continua o loop para manter o vídeo atualizado
+      animationFrameId.current = requestAnimationFrame(tick);
     };
 
     animationFrameId.current = requestAnimationFrame(tick);
@@ -378,7 +383,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "center",
     position: "absolute",
-    bottom: 80, // Posiciona acima dos botões
+    bottom: 80,
     backgroundColor: "rgba(0, 0, 0, 0.7)",
     padding: 10,
     borderRadius: 5,
