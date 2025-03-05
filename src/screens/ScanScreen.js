@@ -35,9 +35,20 @@ export default function ScanScreen() {
         }
 
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "environment" }, // Usa a câmera traseira por padrão
-          });
+          let stream;
+          try {
+            // Tenta usar a câmera traseira primeiro
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: "environment" },
+            });
+          } catch (err) {
+            console.log("Câmera traseira não disponível, tentando qualquer câmera:", err);
+            // Se falhar, tenta usar qualquer câmera disponível
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: true,
+            });
+          }
+
           console.log("Stream obtido com sucesso:", stream);
 
           if (videoRef.current) {
@@ -67,7 +78,9 @@ export default function ScanScreen() {
           console.error("Erro ao solicitar permissão da câmera:", error);
           setHasPermission(false);
           setErrorMessage(
-            error.name === "NotAllowedError"
+            error.name === "NotFoundError"
+              ? "Nenhuma câmera encontrada no dispositivo."
+              : error.name === "NotAllowedError"
               ? "Permissão da câmera negada pelo usuário."
               : "Erro ao acessar a câmera: " + error.message
           );
@@ -213,7 +226,12 @@ export default function ScanScreen() {
   };
 
   if (hasPermission === null) {
-    return <Text style={styles.loadingText}>Solicitando permissão da câmera...</Text>;
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Solicitando permissão da câmera...</Text>
+        {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+      </View>
+    );
   }
 
   return (
@@ -254,9 +272,11 @@ export default function ScanScreen() {
           )}
         </>
       ) : (
-        <Text style={styles.errorText}>
-          {errorMessage || "Câmera não disponível ou permissão negada."}
-        </Text>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>
+            {errorMessage || "Câmera não disponível ou permissão negada."}
+          </Text>
+        </View>
       )}
 
       <Text style={styles.manualLabel}>Insira o CPF manualmente:</Text>
@@ -281,11 +301,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
     alignItems: "center",
     justifyContent: "center",
-    height: "100vh", // Garante que o contêiner ocupe toda a altura da tela
+    height: "100vh",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   camera: {
     width: "100%",
-    height: "70%", // Define uma altura fixa para o vídeo
+    height: "70%",
     objectFit: "cover",
   },
   overlayContainer: {
@@ -337,7 +368,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   errorText: {
-    color: "#fff",
+    color: "#ff5555",
     fontSize: 16,
     textAlign: "center",
     margin: 20,
