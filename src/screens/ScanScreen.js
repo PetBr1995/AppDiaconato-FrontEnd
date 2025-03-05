@@ -19,6 +19,7 @@ export default function ScanScreen() {
   const canvasRef = useRef(null);
   const streamRef = useRef(null); // Para armazenar o MediaStream
   const animationFrameId = useRef(null); // Para controlar o requestAnimationFrame
+  const videoRef = useRef(null); // Para controlar o elemento de vídeo
 
   useEffect(() => {
     const requestCameraPermission = async () => {
@@ -153,9 +154,23 @@ export default function ScanScreen() {
 
   const startScanning = () => {
     console.log("Iniciando escaneamento...");
-    const video = document.createElement("video");
+    if (!streamRef.current) {
+      console.log("Stream não disponível para iniciar escaneamento.");
+      return;
+    }
+
+    // Cria ou reutiliza o elemento de vídeo
+    if (!videoRef.current) {
+      videoRef.current = document.createElement("video");
+    }
+    const video = videoRef.current;
     video.srcObject = streamRef.current;
-    video.play();
+
+    // Garante que o vídeo esteja em reprodução
+    video.play().catch(err => {
+      console.error("Erro ao reproduzir vídeo:", err);
+      setStatus({ message: "Erro ao iniciar a câmera.", type: "error" });
+    });
 
     const tick = () => {
       if (!canvasRef.current || !streamRef.current) {
