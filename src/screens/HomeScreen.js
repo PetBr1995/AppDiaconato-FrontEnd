@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Image,
   Modal,
-  Alert,
   Platform,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -20,7 +19,7 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const [isCertModalVisible, setIsCertModalVisible] = useState(false);
   const [certificateImage, setCertificateImage] = useState(null);
-  const [message, setMessage] = useState(""); // Estado para exibir mensagens na tela
+  const [status, setStatus] = useState({ message: "", type: "" }); // { message, type: "success" | "error" | "warning" }
 
   // Log inicial para verificar carregamento
   useEffect(() => {
@@ -28,28 +27,27 @@ export default function HomeScreen() {
     console.log("Plataforma atual:", Platform.OS);
   }, []);
 
-  // Função para exibir mensagens (alternativa ao Alert.alert)
-  const showMessage = (title, msg) => {
-    console.log(`${title}: ${msg}`);
-    setMessage(`${title}: ${msg}`);
-    Alert.alert(title, msg); // Mantém o Alert.alert como fallback
-    setTimeout(() => setMessage(""), 5000); // Limpa a mensagem após 5 segundos
+  // Função para exibir mensagens
+  const showMessage = (msg, type) => {
+    console.log(`${type.toUpperCase()}: ${msg}`);
+    setStatus({ message: msg, type: type.toLowerCase() });
+    setTimeout(() => setStatus({ message: "", type: "" }), 5000); // Limpa após 5 segundos
   };
 
   // Função para verificar presenças e gerar certificado
   const generateCertificate = async () => {
     try {
       console.log("1. Iniciando geração de certificado...");
-      showMessage("Info", "Iniciando geração de certificado...");
+      showMessage("Iniciando geração de certificado...", "info");
 
       const token = await AsyncStorage.getItem("userToken");
       console.log("2. Token obtido:", token || "Nenhum token encontrado.");
       if (!token) {
-        showMessage("Erro", "Token não encontrado. Faça login novamente.");
+        showMessage("Token não encontrado. Faça login novamente.", "error");
         return;
       }
 
-      const baseURL = Platform.OS === "web" ? "https://appdiaconato.ddns.net:3000" :  "https://localhost:3000";
+      const baseURL = Platform.OS === "web" ? "https://appdiaconato.ddns.net:3000" : "https://localhost:3000";
       console.log("3. Base URL usada:", baseURL);
 
       console.log("4. Verificando presenças...");
@@ -64,9 +62,10 @@ export default function HomeScreen() {
       const { morning, afternoon } = attendanceResponse.data;
       if (!morning || !afternoon) {
         showMessage(
-          "Atenção",
-          "Você precisa ter presença registrada na manhã e na tarde para gerar o certificado."
+          "Você precisa ter presença registrada na manhã e na tarde para gerar o certificado.",
+          "warning"
         );
+        alert('Você precisa ter presença registrada na manhã e na tarde para gerar o certificado.')
         return;
       }
 
@@ -83,21 +82,24 @@ export default function HomeScreen() {
         setCertificateImage(certResponse.data.certificateImage);
         setIsCertModalVisible(true);
         console.log("8. Certificado gerado e modal aberto.");
-        showMessage("Sucesso", "Certificado gerado com sucesso!");
+        showMessage("Certificado gerado com sucesso!", "success");
       } else {
-        showMessage("Erro", "Imagem do certificado não recebida do servidor.");
+        showMessage("Imagem do certificado não recebida do servidor.", "error");
       }
     } catch (error) {
       console.error("Erro ao gerar certificado:", error);
       if (error.response) {
         console.log("Erro do backend:", error.response.data);
-        showMessage("Erro", error.response.data.message || "Não foi possível gerar o certificado.");
+        showMessage(
+          error.response.data.message || "Não foi possível gerar o certificado.",
+          "error"
+        );
       } else if (error.request) {
         console.log("Nenhuma resposta recebida:", error.request);
-        showMessage("Erro", "Sem resposta do servidor. Verifique a conexão.");
+        showMessage("Sem resposta do servidor. Verifique a conexão.", "error");
       } else {
         console.log("Erro na configuração:", error.message);
-        showMessage("Erro", "Erro ao configurar a requisição: " + error.message);
+        showMessage("Erro ao configurar a requisição: " + error.message, "error");
       }
     }
   };
@@ -107,7 +109,7 @@ export default function HomeScreen() {
     try {
       console.log("Iniciando salvamento do certificado...");
       if (!certificateImage) {
-        showMessage("Erro", "Nenhum certificado disponível para salvar.");
+        showMessage("Nenhum certificado disponível para salvar.", "error");
         return;
       }
 
@@ -117,7 +119,7 @@ export default function HomeScreen() {
         console.log("Mobile: Solicitando permissão para galeria...");
         const { status } = await MediaLibrary.requestPermissionsAsync();
         if (status !== "granted") {
-          showMessage("Erro", "Permissão para acessar a galeria foi negada.");
+          showMessage("Permissão para acessar a galeria foi negada.", "error");
           return;
         }
 
@@ -129,7 +131,7 @@ export default function HomeScreen() {
 
         console.log("Mobile: Salvando na galeria...");
         await MediaLibrary.saveToLibraryAsync(fileUri);
-        showMessage("Sucesso", "Certificado salvo na galeria!");
+        showMessage("Certificado salvo na galeria!", "success");
       } else {
         console.log("Web: Convertendo base64 para Blob...");
         const byteCharacters = atob(base64Data);
@@ -150,11 +152,11 @@ export default function HomeScreen() {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
 
-        showMessage("Sucesso", "Certificado baixado!");
+        showMessage("Certificado baixado!", "success");
       }
     } catch (error) {
       console.error("Erro ao salvar certificado:", error);
-      showMessage("Erro", "Não foi possível salvar o certificado.");
+      showMessage("Não foi possível salvar o certificado.", "error");
     }
   };
 
@@ -163,7 +165,7 @@ export default function HomeScreen() {
     try {
       console.log("Iniciando compartilhamento do certificado...");
       if (!certificateImage) {
-        showMessage("Erro", "Nenhum certificado disponível para compartilhar.");
+        showMessage("Nenhum certificado disponível para compartilhar.", "error");
         return;
       }
 
@@ -179,7 +181,7 @@ export default function HomeScreen() {
         console.log("Mobile: Compartilhando arquivo...");
         await Sharing.shareAsync(fileUri);
         console.log("Certificado compartilhado no mobile.");
-        showMessage("Sucesso", "Certificado compartilhado com sucesso!");
+        showMessage("Certificado compartilhado com sucesso!", "success");
       } else {
         console.log("Web: Convertendo base64 para Blob...");
         const byteCharacters = atob(base64Data);
@@ -199,7 +201,7 @@ export default function HomeScreen() {
             text: "Meu certificado de participação!",
           });
           console.log("Certificado compartilhado via Web Share.");
-          showMessage("Sucesso", "Certificado compartilhado com sucesso!");
+          showMessage("Certificado compartilhado com sucesso!", "success");
         } else {
           console.log("Web: Web Share não suportado, usando fallback para download...");
           const url = URL.createObjectURL(blob);
@@ -210,12 +212,12 @@ export default function HomeScreen() {
           link.click();
           document.body.removeChild(link);
           URL.revokeObjectURL(url);
-          showMessage("Sucesso", "Web Share não suportado. Certificado baixado!");
+          showMessage("Web Share não suportado. Certificado baixado!", "success");
         }
       }
     } catch (error) {
       console.error("Erro ao compartilhar certificado:", error);
-      showMessage("Erro", "Não foi possível compartilhar o certificado.");
+      showMessage("Não foi possível compartilhar o certificado.", "error");
     }
   };
 
@@ -239,9 +241,21 @@ export default function HomeScreen() {
         <Text style={styles.linkPerfilText}>Gerar Certificado</Text>
       </TouchableOpacity>
 
-      {/* Exibir mensagem na tela como alternativa ao Alert */}
-      {message ? (
-        <Text style={styles.messageText}>{message}</Text>
+      {/* Exibir mensagens na tela */}
+      {status.message ? (
+        <View style={styles.statusContainer}>
+          <Text
+            style={[
+              styles.statusMessage,
+              status.type === "success" && styles.successMessage,
+              status.type === "error" && styles.errorMessage,
+              status.type === "warning" && styles.warningMessage,
+              status.type === "info" && styles.infoMessage,
+            ]}
+          >
+            {status.message}
+          </Text>
+        </View>
       ) : null}
 
       {/* Modal para exibir o Certificado */}
@@ -366,11 +380,45 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
   },
-  messageText: {
-    fontSize: 16,
-    color: "red",
+  statusContainer: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: "-50%" }, { translateY: "-50%" }],
+    alignItems: "center",
+    zIndex: 10,
+  },
+  statusMessage: {
+    fontSize: 18,
     textAlign: "center",
-    marginTop: 10,
-    marginBottom: 10,
+    padding: 15,
+    borderRadius: 8,
+    color: "#fff",
+    opacity: 0,
+    animation: "fadeIn 0.5s forwards",
+  },
+  successMessage: {
+    backgroundColor: "rgba(0, 128, 0, 0.9)", // Verde para sucesso
+  },
+  errorMessage: {
+    backgroundColor: "rgba(255, 0, 0, 0.9)", // Vermelho para erro
+  },
+  warningMessage: {
+    backgroundColor: "rgba(255, 165, 0, 0.9)", // Amarelo para aviso
+  },
+  infoMessage: {
+    backgroundColor: "rgba(0, 0, 255, 0.9)", // Azul para informação
   },
 });
+
+// Adicionar animação CSS inline para React Native Web
+const keyframes = `
+  @keyframes fadeIn {
+    0% { opacity: 0; transform: scale(0.8); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+`;
+const styleSheet = document.createElement("style");
+styleSheet.type = "text/css";
+styleSheet.innerHTML = keyframes;
+document.head.appendChild(styleSheet);

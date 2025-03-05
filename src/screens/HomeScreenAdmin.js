@@ -31,6 +31,7 @@ export default function HomeScreenAdmin() {
     try {
       if (!cpf || cpf.length !== 11 || isNaN(cpf)) {
         Alert.alert("Erro", "CPF inválido. Insira exatamente 11 dígitos numéricos.");
+        alert('CPF Inválido ou não Cadastrado!')
         return;
       }
 
@@ -50,11 +51,13 @@ export default function HomeScreenAdmin() {
 
       if (response.data.message) {
         Alert.alert("Sucesso", response.data.message);
+        alert('Sucesso!'); 
         closeModal();
       }
     } catch (error) {
       console.error("Erro ao promover usuário:", error);
       Alert.alert("Erro", error.response?.data?.message || "Ocorreu um erro ao promover o usuário.");
+      alert('Usuário já é administrador!');
     }
   };
 

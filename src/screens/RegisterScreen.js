@@ -8,16 +8,40 @@ import {
   Alert,
   Platform,
 } from "react-native";
-import { registerUser } from "../../api"; // Importe o método de registro
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 import { useNavigation } from "@react-navigation/native";
 
 export default function RegisterScreen() {
   const [nome, setNome] = useState("");
   const [cpf, setCpf] = useState("");
   const [area, setArea] = useState("");
-  const [congregacao, setCongregacao] = useState(""); // Agora será tratado como string
+  const [congregacao, setCongregacao] = useState("");
   const [email, setEmail] = useState("");
   const navigation = useNavigation();
+
+  // Função para validar CPF
+  const isValidCpf = (cpf) => {
+    if (!cpf || cpf.length !== 11 || isNaN(cpf)) return false;
+
+    // Remove qualquer sequência repetida (ex.: 11111111111)
+    if (/^(\d)\1{10}$/.test(cpf)) return false;
+
+    const calculateDigit = (digits, weights) => {
+      let sum = 0;
+      for (let i = 0; i < digits.length; i++) {
+        sum += parseInt(digits[i]) * weights[i];
+      }
+      const remainder = (sum * 10) % 11;
+      return remainder === 10 || remainder === 11 ? 0 : remainder;
+    };
+
+    const digits = cpf.split("").map(Number);
+    const firstDigit = calculateDigit(digits.slice(0, 9), [10, 9, 8, 7, 6, 5, 4, 3, 2]);
+    const secondDigit = calculateDigit(digits.slice(0, 10), [11, 10, 9, 8, 7, 6, 5, 4, 3, 2]);
+
+    return firstDigit === digits[9] && secondDigit === digits[10];
+  };
 
   const handleRegister = async () => {
     try {
@@ -27,8 +51,9 @@ export default function RegisterScreen() {
         return;
       }
 
-      if (cpf.length !== 11 || isNaN(cpf)) {
-        Alert.alert("Erro", "CPF inválido");
+      if (!isValidCpf(cpf)) {
+        Alert.alert("Erro", "CPF inválido. Insira um CPF real e válido.");
+        alert('CPF inválido!')
         return;
       }
 
@@ -46,30 +71,40 @@ export default function RegisterScreen() {
       const userData = {
         nome,
         cpf,
-        area: parseInt(area), // Área continua como número
-        congregacao, // Congregação agora é string, sem conversão
+        area: parseInt(area),
+        congregacao,
         email,
         tipoUsuario: "usuario", // Define o tipo de usuário como "usuario" por padrão
       };
 
-      console.log("Dados enviados para o backend:", userData); // Log dos dados enviados
+      console.log("Dados enviados para o backend:", userData);
 
       // Ajuste da URL do backend dependendo da plataforma
       const baseURL = Platform.OS === "web" ? "https://appdiaconato.ddns.net:3000" : "http://localhost:3000";
 
-      // Chamar o backend para registrar o usuário
-      await registerUser(userData, baseURL);
+      // Chamar o backend para registrar o usuário diretamente com axios
+      console.log("Enviando requisição para o backend...");
+      const response = await axios.post(
+        `${baseURL}/api/usuarios/register`,
+        userData,
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      console.log("Resposta do backend:", response.data);
 
       // Exibir mensagem de sucesso e navegar para a tela de login
       Alert.alert("Sucesso", "Usuário cadastrado com sucesso!");
+      alert('Usuário cadastrado com sucesso!')
       navigation.navigate("Login");
     } catch (error) {
-      console.error("Erro ao registrar usuário:", error); // Log do erro
+      console.error("Erro ao registrar usuário:", error);
 
       // Exibir mensagem de erro para o usuário
       let errorMessage = "Ocorreu um erro ao registrar o usuário.";
       if (error.response && error.response.data && error.response.data.message) {
-        errorMessage = error.response.data.message; // Usar mensagem específica do backend, se disponível
+        errorMessage = error.response.data.message;
       }
       Alert.alert("Erro", errorMessage);
     }

@@ -25,6 +25,7 @@ export default function LoginScreen() {
       // Validação do CPF
       if (!cpf || cpf.length !== 11 || isNaN(cpf)) {
         Alert.alert("Erro", "CPF inválido. Insira exatamente 11 dígitos numéricos.");
+        alert('CPF não cadastrado ou CPF inválido')
         console.log("2. Validação falhou: CPF inválido.");
         return;
       }
@@ -67,6 +68,7 @@ export default function LoginScreen() {
       if (error.response) {
         console.log("Erro do backend:", error.response.data);
         Alert.alert("Erro", error.response.data.message || "Erro ao fazer login");
+        alert('Usuário não cadastrado!')
       } else if (error.request) {
         console.log("Nenhuma resposta recebida do servidor:", error.request);
         Alert.alert("Erro", "Sem resposta do servidor. Verifique a conexão.");
