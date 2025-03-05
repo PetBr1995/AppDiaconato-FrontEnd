@@ -70,7 +70,7 @@ export default function ScanScreen() {
                 });
             };
           } else {
-            console.error("Elemento <video> não encontrado.");
+            console.error("Elemento <video> não encontrado após obtenção do stream.");
             setErrorMessage("Elemento de vídeo não encontrado.");
             setHasPermission(false);
           }
@@ -236,7 +236,7 @@ export default function ScanScreen() {
 
   return (
     <View style={styles.container}>
-      {Platform.OS === "web" && hasPermission ? (
+      {Platform.OS === "web" ? (
         <>
           <video
             ref={videoRef}
@@ -245,36 +245,46 @@ export default function ScanScreen() {
             autoPlay
             playsInline
           />
-          <canvas ref={canvasRef} style={{ display: "none" }} />
-          <View style={styles.overlayContainer}>
-            <View style={styles.topOverlay} />
-            <View style={styles.middleOverlay}>
-              <View style={styles.scanFrame}>
-                <Text style={styles.scanText}>
-                  {scanned ? "QR Code lido!" : "Escaneie o QR Code"}
-                </Text>
+          {hasPermission ? (
+            <>
+              <canvas ref={canvasRef} style={{ display: "none" }} />
+              <View style={styles.overlayContainer}>
+                <View style={styles.topOverlay} />
+                <View style={styles.middleOverlay}>
+                  <View style={styles.scanFrame}>
+                    <Text style={styles.scanText}>
+                      {scanned ? "QR Code lido!" : "Escaneie o QR Code"}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.bottomOverlay} />
               </View>
-            </View>
-            <View style={styles.bottomOverlay} />
-          </View>
 
-          {scanned && (
-            <TouchableOpacity
-              style={styles.buttonScanear}
-              onPress={() => {
-                setScanned(false);
-                setScannedData(null);
-                startScanning();
-              }}
-            >
-              <Text style={styles.buttonScanearText}>Escanear Novamente</Text>
-            </TouchableOpacity>
+              {scanned && (
+                <TouchableOpacity
+                  style={styles.buttonScanear}
+                  onPress={() => {
+                    setScanned(false);
+                    setScannedData(null);
+                    startScanning();
+                  }}
+                >
+                  <Text style={styles.buttonScanearText}>Escanear Novamente</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          ) : (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>
+                {errorMessage || "Câmera não disponível ou permissão negada."}
+              </Text>
+            </View>
           )}
         </>
       ) : (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>
-            {errorMessage || "Câmera não disponível ou permissão negada."}
+            {errorMessage || "Câmera não disponível no mobile neste modo."}
           </Text>
         </View>
       )}
